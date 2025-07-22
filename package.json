@@ -1,0 +1,12 @@
+{
+  "name": "python-pdf-heading-classifier",
+  "version": "1.0.0",
+  "description": "Extracts and classifies headings from PDFs, prepares training data, and supports ML model training.",
+  "main": "index.js",
+  "scripts": {
+    "start": "echo 'Use Python scripts as described in README.md'"
+  },
+  "author": "Lakshya",
+  "license": "MIT",
+  "dependencies": {}
+}
