@@ -5,6 +5,7 @@ It creates and saves the model in ONNX format for production use.
 
 import os
 import numpy as np
+import multiprocessing
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
@@ -14,10 +15,25 @@ import onnxruntime as ort
 import skl2onnx
 from skl2onnx import convert_sklearn
 from skl2onnx.common.data_types import FloatTensorType
+import time
+import logging
 
+logging.basicConfig(level=logging.INFO)
+
+def measure_performance(func):
+    """Decorator to measure and log function performance"""
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        duration = time.time() - start_time
+        logging.info(f"{func.__name__} took {duration:.2f} seconds")
+        return result
+    return wrapper
+
+@measure_performance
 def train_model(data_file):
     """
-    Train a model using the prepared training data.
+    Train a model using the prepared training data with optimized performance.
     
     Args:
         data_file: Path to the training data file (.npy)
@@ -25,7 +41,7 @@ def train_model(data_file):
     Returns:
         The trained model and a summary of its performance
     """
-    # Load training data
+    # Load training data efficiently
     print(f"Loading training data from {data_file}...")
     data = np.load(data_file, allow_pickle=True).item()
     
@@ -34,20 +50,45 @@ def train_model(data_file):
     feature_names = data['feature_names']
     label_map = data['label_map']
     
+    # Convert to float32 for better memory usage and ONNX compatibility
+    X = X.astype(np.float32)
+    
     # Split into train and test sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, shuffle=True
+    )
     
     print(f"Training set size: {X_train.shape[0]}")
     print(f"Test set size: {X_test.shape[0]}")
     
-    # Create and train model pipeline
+    # Create optimized model pipeline
     print("Training model...")
+    n_jobs = multiprocessing.cpu_count()
     pipeline = Pipeline([
         ('scaler', StandardScaler()),
-        ('classifier', RandomForestClassifier(n_estimators=100, random_state=42))
+        ('classifier', RandomForestClassifier(
+            n_estimators=100,
+            random_state=42,
+            n_jobs=n_jobs,  # Parallel processing
+            max_features='sqrt',  # Optimize feature selection
+            class_weight='balanced',  # Handle imbalanced classes
+            warm_start=True  # Enable incremental learning
+        ))
     ])
     
-    pipeline.fit(X_train, y_train)
+    # Train in batches for better memory management
+    batch_size = 1000
+    for i in range(0, len(X_train), batch_size):
+        end = min(i + batch_size, len(X_train))
+        X_batch = X_train[i:end]
+        y_batch = y_train[i:end]
+        
+        if i == 0:
+            pipeline.fit(X_batch, y_batch)
+        else:
+            # Incremental fitting for subsequent batches
+            pipeline.named_steps['classifier'].n_estimators += 10
+            pipeline.fit(X_batch, y_batch)
     
     # Evaluate the model
     y_pred = pipeline.predict(X_test)

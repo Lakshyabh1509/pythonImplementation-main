@@ -1,6 +1,25 @@
-# Python PDF Heading Classifier
+# PDF Heading Classification System
 
-This project extracts text lines from PDF files, classifies headings, and prepares training data for machine learning models. It uses PyMuPDF for PDF parsing and supports training with scikit-learn.
+A production-ready system for extracting and classifying headings from PDF documents using machine learning.
+
+## Production Features
+
+- **High Performance PDF Processing**
+  - Parallel processing of multiple PDFs
+  - Batch processing for memory efficiency
+  - Optimized text extraction and cleaning
+
+- **Machine Learning Integration**
+  - Supports both ONNX and sklearn models
+  - Automated model training pipeline
+  - Feature engineering for heading detection
+
+- **Production Ready**
+  - Comprehensive error handling
+  - Performance monitoring
+  - Resource management
+  - Unit testing
+  - Configuration management
 
 ## Features
 - Extracts text lines with font and position info from PDFs

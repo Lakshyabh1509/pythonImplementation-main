@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Project specific
+*.onnx
+*.pkl
+training_data.npy
+outputs/*.json
+test_pdfs/*.pdf
+test_pdfs/*.pdf_Zone.Identifier
+*.log
+pdf_processor.log
+
+# Temp files
+tmp/
+temp/
+*.temp
+*.tmp

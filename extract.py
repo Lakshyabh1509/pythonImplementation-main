@@ -7,35 +7,78 @@ except ImportError:
         from PyMuPDF import fitz  # Another alternative
 import re
 
+import time
+import logging
+from concurrent.futures import ThreadPoolExecutor
+import multiprocessing
+from functools import lru_cache
+
+logging.basicConfig(level=logging.INFO)
+
+def measure_performance(func):
+    """Decorator to measure and log function performance"""
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        duration = time.time() - start_time
+        logging.info(f"{func.__name__} took {duration:.2f} seconds")
+        return result
+    return wrapper
+
+@measure_performance
 def extract_lines(pdf_path):
     """Extract text lines with font and positioning information from a PDF."""
     doc = fitz.open(pdf_path)
-    for page_num, page in enumerate(doc):
-        # Extract text with details about fonts and positions
-        blocks = page.get_text("dict")["blocks"]
-        for block in blocks:
-            if "lines" in block:
-                for line in block["lines"]:
-                    if "spans" in line and len(line["spans"]) > 0:
-                        # Combine spans into a single line
-                        text = " ".join([span["text"] for span in line["spans"] if span["text"].strip()])
-                        if not text.strip():
+    try:
+        # Pre-compile regex pattern for better performance
+        space_pattern = re.compile(r'\s+')
+        
+        # Process pages in batches for better memory management
+        batch_size = 5
+        pages = list(doc)
+        
+        for i in range(0, len(pages), batch_size):
+            batch_pages = pages[i:i + batch_size]
+            
+            for page_num, page in enumerate(batch_pages, start=i):
+                # Get all blocks at once
+                blocks = page.get_text("dict")["blocks"]
+                
+                # Filter blocks with lines first
+                lines_blocks = [b for b in blocks if "lines" in b]
+                
+                for block in lines_blocks:
+                    for line in block["lines"]:
+                        if not ("spans" in line and line["spans"]):
                             continue
                             
-                        # Get font information from the first span (most significant part of the line)
-                        first_span = line["spans"][0]
-                        font_size = first_span["size"]
-                        is_bold = "bold" in first_span["font"].lower() or "black" in first_span["font"].lower()
+                        spans = line["spans"]
+                        first_span = spans[0]
                         
-                        # Clean up text
-                        text = re.sub(r'\s+', ' ', text).strip()
+                        # More efficient text combination
+                        text = " ".join(span["text"] for span in spans if span["text"].strip())
+                        if not text:
+                            continue
+                            
+                        # Clean text using pre-compiled pattern
+                        text = space_pattern.sub(' ', text).strip()
                         
                         yield {
                             "text": text,
                             "page": page_num,
-                            "font_size": font_size,
-                            "is_bold": is_bold,
-                            "x": line["bbox"][0],  # Left position (indentation)
-                            "y": line["bbox"][1],  # Top position
+                            "font_size": first_span["size"],
+                            "is_bold": any(word in first_span["font"].lower() 
+                                         for word in ("bold", "black")),
+                            "x": line["bbox"][0],
+                            "y": line["bbox"][1],
                         }
-    doc.close()
+    finally:
+        doc.close()
+
+@measure_performance
+def process_pdfs_parallel(pdf_paths):
+    """Process multiple PDFs in parallel"""
+    max_workers = min(multiprocessing.cpu_count(), len(pdf_paths))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        results = list(executor.map(extract_lines, pdf_paths))
+    return results

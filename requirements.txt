@@ -1,3 +1,5 @@
 PyMuPDF==1.23.6
 onnxruntime==1.17.3
 numpy
+scikit-learn>=1.0.0
+skl2onnx>=1.10.0
